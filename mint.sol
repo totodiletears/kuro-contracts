@@ -10,9 +10,9 @@ contract Mint is ERC1155Holder, Ownable{
     IERC1155 public nftToken;
     IERC20 public erc20Token;
 
+    address collector;
     uint remaining;
     uint minted;
-    address collector;
     uint supply;
     uint cost;
     bool paused;
@@ -29,7 +29,7 @@ contract Mint is ERC1155Holder, Ownable{
         collector = _collector;
         supply = _supply;
         cost = _cost * 10 ** 9; // kuro
-        paused = false;
+        paused = true;
         minted = 0;
     }
 
@@ -38,13 +38,13 @@ contract Mint is ERC1155Holder, Ownable{
     function claim() public payable {
         require(!paused, "Contract: Paused");
         require(minted + 1 <= supply, "Contract: Sold out");
-        require(erc20Token.balanceOf(msg.sender) > cost, "Contract: You don't have enough KURO");
+        require(erc20Token.balanceOf(msg.sender) >= cost, "Contract: You don't have enough KURO");
         erc20Token.transferFrom(msg.sender, collector, cost);
         nftToken.safeTransferFrom(address(this), msg.sender, minted + 1, 1, "");
         minted++;
     }
 
-    // other
+    // misc
 
     function nftsRemaining() public view returns (uint){
         return supply - minted;
@@ -93,13 +93,5 @@ contract Mint is ERC1155Holder, Ownable{
     function getMinterAddress() public view returns (address) {
         return address(this);
     }
-
-    function transferKuro() public payable {
-        erc20Token.transferFrom(msg.sender, address(this), 100);
-    }
-
-    // withdraw erc20
-
-    // withdraw nft
 
 }
