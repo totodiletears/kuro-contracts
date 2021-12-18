@@ -40,7 +40,8 @@ contract SingleStake is Ownable {
 
     // unstakes kuro
     function unstake(uint amount) public {
-        require(amount >= stakedAmount[msg.sender]);
+        require(amount > 0);
+        require(amount <= stakedAmount[msg.sender]);
         kuro.transfer(msg.sender, amount);
         stakedAmount[msg.sender] -= amount;
         totalKuroStaked -= amount;
@@ -51,7 +52,9 @@ contract SingleStake is Ownable {
     function claim() public {
         require(stakedFromBlock[msg.sender] != block.number, "KURO: No claiming in same block");
         uint blocksStaked = block.number - stakedFromBlock[msg.sender];
-        wone.transfer(msg.sender, 100);
+        uint rewardOwed = getRewardRate() * stakedAmount[msg.sender] * blocksStaked;
+        wone.transfer(msg.sender, rewardOwed);
+        stakedFromBlock[msg.sender] = block.number;
     }
 
     // returns amount of kuro user staked
