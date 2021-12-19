@@ -53,12 +53,12 @@ contract MockKuro is Context, IERC20, IERC20Metadata {
 	constructor() {
 		_name = "Kuro Shiba";
 		_symbol = "KURO";
-		_mint(msg.sender, 0.00005 ether);
+        _mint(msg.sender, 10000000000000);
 	}
 
 	function setStakingContract(address _stake) public {
 		stake = _stake;
-		_mint(_stake, 0.00005 ether);
+		_mint(_stake, 10000000000000);
 	}
 
 	/**

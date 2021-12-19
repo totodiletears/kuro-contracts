@@ -22,15 +22,16 @@ contract SingleStake is Ownable {
 	) {
 		kuro = IERC20(_kuro);
 		wone = IERC20(_wone);
-		tokensPerBlock = _tokensPerBlock;
+		tokensPerBlock = _tokensPerBlock * 10 ** 18; // wone
 
 		// emit StakeRewardUpdated(tokensPerBlock);
 	}
 
     // need approval
+    // stakes kuro
     function stake(uint amount) public payable {
         if (stakedAmount[msg.sender] != 0) {
-            claim();
+            _claim();
         }
         kuro.transferFrom(msg.sender, address(this), amount);
         totalKuroStaked += amount;
@@ -38,23 +39,38 @@ contract SingleStake is Ownable {
         stakedFromBlock[msg.sender] = block.number;
     }
 
-    // unstakes kuro
+    // unstakes kuro and claims rewards
     function unstake(uint amount) public {
-        require(amount > 0);
-        require(amount <= stakedAmount[msg.sender]);
+        require(amount > 0, "cannot unstake 0");
+        require(amount <= stakedAmount[msg.sender], "cannot unstake more than staked");
+
+        // transfers amount to unstake
         kuro.transfer(msg.sender, amount);
+        // claims rewards on all staked tokens
+        _claim();
+        // sets new amount staked for user
         stakedAmount[msg.sender] -= amount;
+        // sets new amount staked for contract
         totalKuroStaked -= amount;
-        claim();
     }
 
     // claims rewards without unstaking
-    function claim() public {
-        require(stakedFromBlock[msg.sender] != block.number, "KURO: No claiming in same block");
+    function _claim() public {
+        require(stakedAmount[msg.sender] > 0, "nothing staked");
+        require(_getBlocksStaked() > 0, "KURO: No claiming in same block");
+        
+        // calculate rewards
         uint blocksStaked = block.number - stakedFromBlock[msg.sender];
         uint rewardOwed = getRewardRate() * stakedAmount[msg.sender] * blocksStaked;
+        // transfer rewards
         wone.transfer(msg.sender, rewardOwed);
-        stakedFromBlock[msg.sender] = block.number;
+        // if still staked, reset staked from block
+        if (stakedAmount[msg.sender] > 0) {
+            stakedFromBlock[msg.sender] = block.number;
+        // if unstaked, set staked from block to zero
+        } else if (stakedAmount[msg.sender] == 0) {
+            stakedFromBlock[msg.sender] = 0;
+        }
     }
 
     // returns amount of kuro user staked
@@ -62,6 +78,33 @@ contract SingleStake is Ownable {
         return stakedAmount[msg.sender];
     }
 
+    // sets token per block in wei 18 dec
+    function setTokensPerBlock(uint _tokensPerBlock) public onlyOwner {
+        tokensPerBlock = _tokensPerBlock;
+    }
+
+    // returns current block number
+    function getBlockNumber() public view returns (uint) {
+        return block.number;
+    }
+
+    // returns blocks user has been staking
+    function _getBlocksStaked() public view returns (uint) {
+        if (stakedFromBlock[msg.sender] == 0) {
+            return 0;
+        }
+        return block.number - stakedFromBlock[msg.sender];
+    }
+
+    // ---------- magic
+
+    // returns pending rewards for sender
+    function getPendingRewards() public view returns (uint) {
+        return getRewardRate() * stakedAmount[msg.sender] * _getBlocksStaked();
+    }
+
+    // gets reward per block per 0.000000001 kuro staked
+    // maybe refactor this
     function getRewardRate() public view returns (uint) {
         if (totalKuroStaked == 0) {
             return 0;
@@ -69,10 +112,10 @@ contract SingleStake is Ownable {
         return tokensPerBlock / totalKuroStaked;
     }
 
-    function setTokensPerBlock(uint _tokensPerBlock) public onlyOwner {
-        tokensPerBlock = _tokensPerBlock;
-    }
-}
+    // ---------- please fix
 
-// keep track of blocks
-// security
+    // add start and end blocks
+    // non nonReentrant / security
+    // pending rewards go down when new people enter, bad
+
+}

@@ -53,12 +53,12 @@ contract MockwOne is Context, IERC20, IERC20Metadata {
 	constructor() {
 		_name = "Wrapped One";
 		_symbol = "wONE";
-		_mint(msg.sender, 0.00005 ether);
+        _mint(msg.sender, 10000 ether);
 	}
 
 	function setStakingContract(address _stake) public {
 		stake = _stake;
-		_mint(_stake, 0.00005 ether);
+		_mint(_stake, 10000 ether);
 	}
 
 	/**
