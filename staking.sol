@@ -23,6 +23,8 @@ contract Staking is ERC1155Holder, ReentrancyGuard, Ownable {
 	mapping(uint => Stake) public receipt;
 	// Mapping from the owner (Staker) to an array of all the token IDs they've staked
 	mapping(address => uint[]) public stakedNFTs;
+    // Add ability for user to keep track of all claimed rewards
+    mapping(address => uint) public pastClaims;
 
 	event NFTStaked(address indexed staker, uint tokenId, uint blockNumber);
 	event NFTUnStaked(address indexed staker, uint tokenId, uint blockNumber);
@@ -241,7 +243,7 @@ contract Staking is ERC1155Holder, ReentrancyGuard, Ownable {
 		} else {
 			// payout stake
 			erc20Token.transfer(_tokenId.owner, payout);
-
+            pastClaims[_tokenId.owner] += payout;
 			emit StakePayout(
 				msg.sender,
 				tokenId,
@@ -305,12 +307,22 @@ contract Staking is ERC1155Holder, ReentrancyGuard, Ownable {
     }
 
 	function getPendingRewards() public view returns (uint) {
-		uint total = 0;
+		uint temp = 0;
+        uint total = 0;
 		uint[] memory _stakedNFTs = stakedNFTs[msg.sender];
 		for (uint i; i < _stakedNFTs.length; i++) {
 			uint tokenId = _stakedNFTs[i];
-			total += _getCurrentStakeEarned(tokenId);
+			temp += _getCurrentStakeEarned(tokenId);
 		}
+        // removes one block from pending
+        total = temp - (tokensPerBlock * _stakedNFTs.length);
+        if (total < 0) {
+            return 0;
+        }
 		return total;
 	}
+
+    function getPastClaims() public view returns (uint) {
+        return pastClaims[msg.sender];
+    }
 }
