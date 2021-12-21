@@ -99,7 +99,7 @@ contract NFTs is ERC1155Supply, Ownable {
 	}
 
 	function sellNFT(uint id, uint price) external {
-		require(price >= 1e5, "Minimum amount must be greater than 1e5");
+		require(price >= 1e9, "Minimum amount must be greater than 1");
 		require(isNFT(id), "Token ID is not an NFT");
 		safeTransferFrom(msg.sender, address(marketplaceContract), id, 1, "");
 		marketplaceContract.sellNFT(msg.sender, id, price);
@@ -110,7 +110,7 @@ contract NFTs is ERC1155Supply, Ownable {
 	{
 		uint[] memory amounts = new uint[](ids.length);
 		for (uint i; i < ids.length; i++) {
-			require(prices[i] >= 1e5, "Minimum amount must be greater than 1e5");
+			require(prices[i] >= 1e9, "Minimum amount must be greater than 1");
 			require(isNFT(ids[i]), "Token ID is not an NFT");
 			amounts[i] = 1;
 		}
