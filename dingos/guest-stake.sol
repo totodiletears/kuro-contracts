@@ -49,7 +49,7 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
     // set approval for all
     // important functions
     // stake
-    function stakeNFT(address from, uint tokenId) external {
+    function stakeNFT(address from, uint tokenId) internal {
         nftToken.safeTransferFrom(msg.sender, address(this), tokenId);
         require(
             nftToken.ownerOf(tokenId) == address(this),
@@ -64,8 +64,12 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
 		emit NFTStaked(from, tokenId, block.number);
     }
 
-    // stakeMultiple
-
+    // stake multiple
+    function stakeMultipleNFTs(address from, uint[] calldata ids) external {
+        for (uint i; i < ids.length; i++) {
+            stakeNFT(from, ids[i]);
+		}
+    }
 
     // unstake
 	function unstakeNFT(uint tokenId) external nonReentrant {
