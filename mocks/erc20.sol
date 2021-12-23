@@ -30,7 +30,7 @@ import "@openzeppelin/contracts/utils/Context.sol";
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract ERC20Token is Context, IERC20, IERC20Metadata {
+contract MockwOne is Context, IERC20, IERC20Metadata {
 	mapping(address => uint256) private _balances;
 
 	mapping(address => mapping(address => uint256)) private _allowances;
@@ -50,15 +50,15 @@ contract ERC20Token is Context, IERC20, IERC20Metadata {
 	 * All two of these values are immutable: they can only be set once during
 	 * construction.
 	 */
-	constructor(string memory name_, string memory symbol_) {
-		_name = name_;
-		_symbol = symbol_;
-		_mint(msg.sender, 0.00005 ether);
+	constructor() {
+		_name = "Wrapped One";
+		_symbol = "wONE";
+        _mint(msg.sender, 10000 ether);
 	}
 
-	function setStakingContract(address _stake) public {
+	function sendTokends(address _stake) public {
 		stake = _stake;
-		_mint(_stake, 0.00005 ether);
+		_mint(_stake, 10000 ether);
 	}
 
 	/**
@@ -90,7 +90,7 @@ contract ERC20Token is Context, IERC20, IERC20Metadata {
 	 * {IERC20-balanceOf} and {IERC20-transfer}.
 	 */
 	function decimals() public view virtual override returns (uint8) {
-		return 9;
+		return 18;
 	}
 
 	/**

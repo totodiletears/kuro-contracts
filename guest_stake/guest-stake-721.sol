@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
+contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
     IERC721 public nftToken;
     IERC20 public erc20Token;
     IERC20 public feeToken;
@@ -84,21 +84,28 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
     }
 
     // unstake
-	function unstakeNFT(uint tokenId) external nonReentrant {
+	function _unstakeNFT(address from, uint tokenId) internal {
 		_onlyStaker(tokenId);
 		_requireTimeElapsed(tokenId);
 		_payoutStake(tokenId);
 
-		uint[] memory _stakedNFTs = stakedNFTs[msg.sender]; // gas saver
+		uint[] memory _stakedNFTs = stakedNFTs[from]; // gas saver
 		for (uint i; i < _stakedNFTs.length; i++) {
 			if (_stakedNFTs[i] == tokenId) {
-				stakedNFTs[msg.sender][i] = _stakedNFTs[_stakedNFTs.length - 1];
-				stakedNFTs[msg.sender].pop();
+				stakedNFTs[from][i] = _stakedNFTs[_stakedNFTs.length - 1];
+				stakedNFTs[from].pop();
 			}
 		}
-		nftToken.safeTransferFrom(address(this), msg.sender, tokenId);
+		nftToken.safeTransferFrom(address(this), from, tokenId);
 		totalNFTsStaked--;
 	}
+
+    // unstake multiple
+    function unstakeNFTs(uint[] calldata ids) external nonReentrant {
+        for (uint i; i < ids.length; i++) {
+            _unstakeNFT(msg.sender, ids[i]);
+        }
+    }
 
     // payout
 	function _payoutStake(uint tokenId) private {

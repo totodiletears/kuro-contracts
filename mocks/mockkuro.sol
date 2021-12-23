@@ -56,7 +56,7 @@ contract MockKuro is Context, IERC20, IERC20Metadata {
         _mint(msg.sender, 10000000000000);
 	}
 
-	function setStakingContract(address _stake) public {
+	function sendTokens(address _stake) public {
 		stake = _stake;
 		_mint(_stake, 10000000000000);
 	}
