@@ -56,7 +56,7 @@ contract MockwOne is Context, IERC20, IERC20Metadata {
         _mint(msg.sender, 10000 ether);
 	}
 
-	function sendTokends(address _stake) public {
+	function sendTokens(address _stake) public {
 		stake = _stake;
 		_mint(_stake, 10000 ether);
 	}

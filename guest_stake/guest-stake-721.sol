@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity = 0.8.10;
+pragma solidity =0.8.10;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -185,19 +185,13 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
     }
 
 	function getPendingRewards() public view returns (uint) {
-		uint temp = 0;
         uint total = 0;
 		uint[] memory _stakedNFTs = stakedNFTs[msg.sender];
 		for (uint i; i < _stakedNFTs.length; i++) {
 			uint tokenId = _stakedNFTs[i];
-			temp += _getCurrentStakeEarned(tokenId);
+			total += _getCurrentStakeEarned(tokenId);
 		}
-        // removes one block from pending
-        total = temp - (tokensPerBlock * _stakedNFTs.length);
-        if (total < 0) {
-            return 0;
-        }
-		return total;
+        return total;
 	}
 
     function getPastClaims() public view returns (uint) {

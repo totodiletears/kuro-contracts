@@ -1,282 +1,440 @@
-// // SPDX-License-Identifier: MIT
-// pragma solidity = 0.8.10;
+// SPDX-License-Identifier: MIT
+pragma solidity =0.8.10;
 
-// import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-// import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-// import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-// import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-// import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-// contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
-//     IERC721 public nftToken;
-//     IERC20 public erc20Token;
-//     IERC20 public feeToken;
+contract GuesStake1155 is ERC1155Holder, ReentrancyGuard, Ownable {
+	IERC1155 public nftToken;
+	IERC20 public erc20Token;
+    IERC20 public feeToken;
 
-//     address private collector;
-//     uint public fee;
+    address private collector;
+    uint public fee;
 
-//     uint public tokensPerBlock;
-//     uint public totalNFTsStaked;
-//     uint public totalFeesPaid;
+	uint public tokensPerBlock; // the amount of tokens rewarded per block staked
+	uint public totalNFTsStaked; // the total amount of NFTs that have been staked to the contract
+    uint public totalFeesPaid;
 
-//     struct Stake {
-//         address owner;
-//         uint stakedFromBlock;
-//     }
+	struct Stake {
+		address owner;
+		uint stakedFromBlock;
+	}
 
-//     mapping(uint => Stake) public receipt;
-//     mapping(address => uint[]) public stakedNFTs;
-//     mapping(address => uint) public pastClaims;
-//     mapping(address => bool) public paidFee;
+	// TokenID => Stake
+	mapping(uint => Stake) public receipt;
+	// Mapping from the owner (Staker) to an array of all the token IDs they've staked
+	mapping(address => uint[]) public stakedNFTs;
+    // Add ability for user to keep track of all claimed rewards
+    mapping(address => uint) public pastClaims;
+    mapping(address => bool) public paidFee;
 
-//     event NFTStaked(address indexed staker, uint tokenId, uint blockNumber);
-//     event NFTUnStaked(address indexed staker, uint tokenId, uint blockNumber);
-//     event StakePayout(
-//         address indexed staker,
-//         uint tokenId,
-//         uint stakeAmount,
-//         uint fromBlock,
-//         uint toBlock
-//     );
-//     event StakeRewardUpdated(uint rewardPerBlock);
+	event NFTStaked(address indexed staker, uint tokenId, uint blockNumber);
+	event NFTUnStaked(address indexed staker, uint tokenId, uint blockNumber);
+	event StakePayout(
+		address indexed staker,
+		uint tokenId,
+		uint stakeAmount,
+		uint fromBlock,
+		uint toBlock
+	);
+	event StakeRewardUpdated(uint rewardPerBlock);
 
-//     constructor(
-//         address _nftToken,
-//         address _erc20Token,
-//         address _feeToken,
-//         address _collector,
-//         uint _fee,
-//         uint _tokensPerBlock
-//     ) {
-//         nftToken = IERC721(_nftToken);
-//         erc20Token = IERC20(_erc20Token);
-//         feeToken = IERC20(_feeToken);
-//         collector = _collector;
-//         tokensPerBlock = _tokensPerBlock;
-//         fee = _fee;
+	// Sets the smart contract addresses for the NFT & ERC20 contract, as well as the amount
+	// of rewards per block will be given to users that stake their NFTs
+	constructor(
+		address _nftToken,
+		address _erc20Token,
+        address _feeToken,
+        address _collector,
+        uint _fee,
+		uint _tokensPerBlock
+	) {
+		nftToken = IERC1155(_nftToken);
+		erc20Token = IERC20(_erc20Token);
+        feeToken = IERC20(_feeToken);
+        collector = _collector;
+		tokensPerBlock = _tokensPerBlock;
+        fee = _fee;
 
-//         emit StakeRewardUpdated(tokensPerBlock);
-//     }
+		emit StakeRewardUpdated(tokensPerBlock);
+	}
 
-//     // set approval for all
-//     // stake
-//     function _stakeNFT(address from, uint tokenId) internal {
-//         require(paidFee[from] == true, "Must pay entry fee");
-//         nftToken.safeTransferFrom(msg.sender, address(this), tokenId);
-//         require(
-//             nftToken.ownerOf(tokenId) == address(this),
-//             "Staking Failed"
-//         );
+// standard kuro stake
 
-//         receipt[tokenId].owner = from;
-// 		receipt[tokenId].stakedFromBlock = block.number;
-// 		stakedNFTs[from].push(tokenId);
-// 		totalNFTsStaked++;
+	function stakeNFT(address from, uint tokenId) external onlyNFT {
+		// Checks to make sure this contract received the NFT.
+		require(
+			nftToken.balanceOf(address(this), tokenId) == 1,
+			"Stake: Token Transfer Failed"
+		);
 
-// 		emit NFTStaked(from, tokenId, block.number);
-//     }
+		receipt[tokenId].owner = from;
+		receipt[tokenId].stakedFromBlock = block.number;
+		stakedNFTs[from].push(tokenId);
+		totalNFTsStaked++;
 
-//     // stake multiple
-//     function stakeNFTs(uint[] calldata ids) external nonReentrant {
-//         for (uint i; i < ids.length; i++) {
-//             _stakeNFT(msg.sender, ids[i]);
-// 		}
-//     }
+		emit NFTStaked(from, tokenId, block.number);
+	}
 
-//     // unstake
-// 	function _unstakeNFT(address from, uint tokenId) internal {
-// 		_onlyStaker(tokenId);
-// 		_requireTimeElapsed(tokenId);
-// 		_payoutStake(tokenId);
+	// NOTE: Due to the unavoidable gas limit of the Ethereum network,
+	// a large amount of NFTs transfered could result to a failed transaction.
+	// @dev This function NEEDS to be called from the NFT smart contract. Can't
+	// be called directly or else it will fail. Allows a user to stake multiple
+	// NFTs. The Parameters are fed by the NFT contract
+	function stakeMultipleNFTs(address from, uint[] calldata tokenIds)
+		external
+		onlyNFT
+	{
+		for (uint i; i < tokenIds.length; i++) {
+			uint tokenId = tokenIds[i]; // gas saver
+			// Checks to make sure this contract received the NFT.
+			require(
+				nftToken.balanceOf(address(this), tokenId) == 1,
+				"Stake: Token Transfer Failed"
+			);
 
-// 		uint[] memory _stakedNFTs = stakedNFTs[from]; // gas saver
-// 		for (uint i; i < _stakedNFTs.length; i++) {
-// 			if (_stakedNFTs[i] == tokenId) {
-// 				stakedNFTs[from][i] = _stakedNFTs[_stakedNFTs.length - 1];
-// 				stakedNFTs[from].pop();
-// 			}
-// 		}
-// 		nftToken.safeTransferFrom(address(this), from, tokenId);
-// 		totalNFTsStaked--;
-// 	}
+			receipt[tokenId].owner = from;
+			receipt[tokenId].stakedFromBlock = block.number;
+			stakedNFTs[from].push(tokenId);
 
-//     // unstake multiple
-//     function unstakeNFTs(uint[] calldata ids) external nonReentrant {
-//         for (uint i; i < ids.length; i++) {
-//             _unstakeNFT(msg.sender, ids[i]);
-//         }
-//     }
+			emit NFTStaked(from, tokenId, block.number);
+		}
+		totalNFTsStaked += tokenIds.length;
+	}
 
-//     // payout
-// 	function _payoutStake(uint tokenId) private {
-// 		Stake memory _tokenId = receipt[tokenId]; // gas saver
+	// This is the function a user calls when they want to unstake a single NFT.
+	// Can be called directly, does not have to be called from the NFT contract.
+	function unstakeNFT(uint tokenId) external nonReentrant {
+		_onlyStaker(tokenId);
+		_requireTimeElapsed(tokenId);
+		_payoutStake(tokenId);
 
-// 		// earned amount is difference between the stake start block, current block multiplied by stake amount
-// 		uint timeStaked = (block.number - _tokenId.stakedFromBlock) - 1; // don't pay for the tx block of withdrawl
-// 		uint payout = timeStaked * tokensPerBlock;
+		uint[] memory _stakedNFTs = stakedNFTs[msg.sender]; // gas saver
+		for (uint i; i < _stakedNFTs.length; i++) {
+			if (_stakedNFTs[i] == tokenId) {
+				stakedNFTs[msg.sender][i] = _stakedNFTs[_stakedNFTs.length - 1];
+				stakedNFTs[msg.sender].pop();
+			}
+		}
+		nftToken.safeTransferFrom(address(this), msg.sender, tokenId, 1, "");
+		totalNFTsStaked--;
+	}
 
-// 		// If contract does not have enough tokens to pay out, return the NFT without payment
-// 		// This prevent a NFT being locked in the contract when empty
-// 		if (erc20Token.balanceOf(address(this)) < payout) {
-// 			emit StakePayout(
-// 				msg.sender,
-// 				tokenId,
-// 				0,
-// 				_tokenId.stakedFromBlock,
-// 				block.number
-// 			);
-// 		} else {
-// 			// payout stake
-// 			erc20Token.transfer(_tokenId.owner, payout);
-//             pastClaims[_tokenId.owner] += payout;
-// 			emit StakePayout(
-// 				msg.sender,
-// 				tokenId,
-// 				payout,
-// 				_tokenId.stakedFromBlock,
-// 				block.number
-// 			);
-// 		}
-// 	}
+	// This is the function to call when a user wants to unstake multiple NFTs.
+	// Can be called directly. The user has to pass in an array of all the NFTs
+	// they would like to unstake.
+	function unstakeMultipleNFTs(uint[] calldata tokenIds) external nonReentrant {
+		// Array needed to pay out the NFTs
+		uint[] memory amounts = new uint[](tokenIds.length);
+		uint[] storage _stakedNFTs = stakedNFTs[msg.sender]; // gas saver
 
-//     // withdraw
-// 	function withdrawRewardsNoArray() external nonReentrant {
-// 		uint[] memory _stakedNFTs = stakedNFTs[msg.sender]; // gas saver
-// 		for (uint i; i < _stakedNFTs.length; i++) {
-// 			uint tokenId = _stakedNFTs[i];
-// 			_onlyStaker(tokenId);
-// 			_requireTimeElapsed(tokenId);
-// 			_payoutStake(tokenId);
+		for (uint i; i < tokenIds.length; i++) {
+			uint id = tokenIds[i]; // gas saver
 
-// 			// update receipt with a new block number
-// 			receipt[tokenId].stakedFromBlock = block.number;
-// 		}
-// 	}
+			_onlyStaker(id);
+			_requireTimeElapsed(id);
+			_payoutStake(id);
+			amounts[i] = 1;
 
-//     // other functions
-// 	function _requireTimeElapsed(uint tokenId) private view {
-// 		require(
-// 			receipt[tokenId].stakedFromBlock < block.number,
-// 			"requireTimeElapsed: Can not stake/unStake/harvest in same block"
-// 		);
-// 	}
+			// Finds the ID in the array and removes it.
+			for (uint x; x < _stakedNFTs.length; x++) {
+				if (id == _stakedNFTs[x]) {
+					_stakedNFTs[x] = _stakedNFTs[_stakedNFTs.length - 1];
+					_stakedNFTs.pop();
+					break;
+				}
+			}
 
-//     // Returns an array of all the NFTs a user has staked
-//     function getAllNFTsUserStaked(address account)
-//         public
-//         view
-//         returns (uint[] memory)
-//     {
-//         return stakedNFTs[account];
-//     }
+			emit NFTUnStaked(msg.sender, id, receipt[id].stakedFromBlock);
+		}
 
-// 	function _getTimeStaked(uint256 tokenId) internal view returns (uint256) {
-//         if (receipt[tokenId].stakedFromBlock == 0) {
-//             return 0;
-//         }
-//         return receipt[tokenId].stakedFromBlock;
-//     }
+		nftToken.safeBatchTransferFrom(
+			address(this),
+			msg.sender,
+			tokenIds,
+			amounts,
+			""
+		);
+		totalNFTsStaked -= tokenIds.length;
+	}
 
-// 	function _getCurrentStakeEarned(uint256 tokenId) public view returns (uint256) {
-// 		if (receipt[tokenId].stakedFromBlock == 0) {
-// 			return 0;
-// 		}
-// 		return (block.number - _getTimeStaked(tokenId)) * tokensPerBlock;
-//     }
+	// This function is called when a user wants to withdraw their funds without
+	// unstaking their NFT
+	function withdrawRewards(uint[] calldata tokenIds) external nonReentrant {
+		for (uint i; i < tokenIds.length; i++) {
+			uint tokenId = tokenIds[i]; // gas saver
+			_onlyStaker(tokenId);
+			_requireTimeElapsed(tokenId);
+			_payoutStake(tokenId);
 
-// 	function getPendingRewards() public view returns (uint) {
-// 		uint temp = 0;
-//         uint total = 0;
-// 		uint[] memory _stakedNFTs = stakedNFTs[msg.sender];
-// 		for (uint i; i < _stakedNFTs.length; i++) {
-// 			uint tokenId = _stakedNFTs[i];
-// 			temp += _getCurrentStakeEarned(tokenId);
-// 		}
-//         // removes one block from pending
-//         total = temp - (tokensPerBlock * _stakedNFTs.length);
-//         if (total < 0) {
-//             return 0;
-//         }
-// 		return total;
-// 	}
+			// update receipt with a new block number
+			receipt[tokenId].stakedFromBlock = block.number;
+		}
+	}
 
-//     function getPastClaims() public view returns (uint) {
-//         return pastClaims[msg.sender];
-//     }
+	// Withdraws rewards from all NFTs staked without passing in an array of specific
+	// token IDs from which you want to withdraw from
+	// NOTE: Cheaper on gas to pass in the array of tokenIDs rather than not
+	// but by not passing the array in it can withdraw everything while the other can
+	// specify only the NFT rewards you'd like to withdraw from.
+	function withdrawRewardsNoArray() external nonReentrant {
+		uint[] memory _stakedNFTs = stakedNFTs[msg.sender]; // gas saver
+		for (uint i; i < _stakedNFTs.length; i++) {
+			uint tokenId = _stakedNFTs[i];
+			_onlyStaker(tokenId);
+			_requireTimeElapsed(tokenId);
+			_payoutStake(tokenId);
 
-// 	// Returns the total amount of ERC20 tokens that this contract owns
-// 	function getStakeContractBalance() public view returns (uint) {
-// 		return erc20Token.balanceOf(address(this));
-// 	}
+			// update receipt with a new block number
+			receipt[tokenId].stakedFromBlock = block.number;
+		}
+	}
 
-// 	// Allows you to set a new ERC20 contract address
-// 	function setERC20Contract(address _tokenAddress) public onlyOwner {
-// 		erc20Token = IERC20(_tokenAddress);
-// 	}
+	// NOTE: To only be called by a nonReentrant function.
+	// This function is meant to be called by other functions within the smart contract.
+	// Never called externally by the client.
+	function _payoutStake(uint tokenId) private {
+		Stake memory _tokenId = receipt[tokenId]; // gas saver
 
-// 	// Allows you to set a new NFT contract address
-// 	function setNFTContract(address _nftAddress) public onlyOwner {
-// 		nftToken = IERC721(_nftAddress);
-// 	}
+		// earned amount is difference between the stake start block, current block multiplied by stake amount
+		uint timeStaked = (block.number - _tokenId.stakedFromBlock) - 1; // don't pay for the tx block of withdrawl
+		uint payout = timeStaked * tokensPerBlock;
 
-// 	// Allows you to update the rewards per block amount
-// 	function updateStakingReward(uint _tokensPerBlock) external onlyOwner {
-// 		tokensPerBlock = _tokensPerBlock;
-// 		emit StakeRewardUpdated(tokensPerBlock);
-// 	}
+		// If contract does not have enough tokens to pay out, return the NFT without payment
+		// This prevent a NFT being locked in the contract when empty
+		if (erc20Token.balanceOf(address(this)) < payout) {
+			emit StakePayout(
+				msg.sender,
+				tokenId,
+				0,
+				_tokenId.stakedFromBlock,
+				block.number
+			);
+		} else {
+			// payout stake
+			erc20Token.transfer(_tokenId.owner, payout);
+            pastClaims[_tokenId.owner] += payout;
+			emit StakePayout(
+				msg.sender,
+				tokenId,
+				payout,
+				_tokenId.stakedFromBlock,
+				block.number
+			);
+		}
+	}
 
-// 	// Returns the length of the total amount an account has staked to this smart contract
-// 	function totalNFTsUserStaked(address account) public view returns (uint) {
-// 		return stakedNFTs[account].length;
-// 	}
+// --------------------- ERC721 guest ----------------------
 
-//     // modifier
-//     function _onlyStaker(uint tokenId) private view {
-//         require(
-//             nftToken.ownerOf(tokenId) == address(this),
-//             "onlyStaker: Contract is not owner of this NFT"
-//         );
-//         require(
-//             receipt[tokenId].stakedFromBlock != 0,
-//             "onlyStaker: Token is not staked"
-//         );
-//         require(
-//             receipt[tokenId].owner == msg.sender,
-//             "onlyStaker: Caller is not NFT stake owner"
-//         );
-//     }
+    // set approval for all
+    // stake
+    function _stakeNFT(address from, uint tokenId) internal {
+        require(paidFee[from] == true, "Must pay entry fee");
+        nftToken.safeTransferFrom(msg.sender, address(this), tokenId);
+        require(
+            nftToken.ownerOf(tokenId) == address(this),
+            "Staking Failed"
+        );
 
-//     // required by solidity
-//     function onERC721Received(
-//         address,
-//         address,
-//         uint256,
-//         bytes memory
-//     ) public virtual override returns (bytes4) {
-//         return this.onERC721Received.selector;
-//     }
+        receipt[tokenId].owner = from;
+		receipt[tokenId].stakedFromBlock = block.number;
+		stakedNFTs[from].push(tokenId);
+		totalNFTsStaked++;
 
-//     // set dev wallet
-//     function setCollector(address _collector) public onlyOwner {
-//         collector = _collector;
-//     }
+		emit NFTStaked(from, tokenId, block.number);
+    }
 
-//     // set entry fee
-//     function setFee(uint _fee) public onlyOwner {
-//         fee = _fee;
-//     }
+    // stake multiple
+    function stakeNFTs(uint[] calldata ids) external nonReentrant {
+        for (uint i; i < ids.length; i++) {
+            _stakeNFT(msg.sender, ids[i]);
+		}
+    }
 
-//     // requires erc20 approval
-//     function payFee() external {
-//         require(paidFee[msg.sender] == false, "You already paid the fee");
-//         feeToken.transferFrom(msg.sender, collector, fee);
-//         paidFee[msg.sender] = true;
-//         totalFeesPaid += fee;
-//     }
+    // unstake
+	function _unstakeNFT(address from, uint tokenId) internal {
+		_onlyStaker(tokenId);
+		_requireTimeElapsed(tokenId);
+		_payoutStake(tokenId);
 
-//     // change status in emergency
-//     function manualSetStatus(address _user, bool _status) public onlyOwner {
-//         paidFee[_user] = _status;
-//     }
+		uint[] memory _stakedNFTs = stakedNFTs[from]; // gas saver
+		for (uint i; i < _stakedNFTs.length; i++) {
+			if (_stakedNFTs[i] == tokenId) {
+				stakedNFTs[from][i] = _stakedNFTs[_stakedNFTs.length - 1];
+				stakedNFTs[from].pop();
+			}
+		}
+		nftToken.safeTransferFrom(address(this), from, tokenId);
+		totalNFTsStaked--;
+	}
 
-// }
+    // unstake multiple
+    function unstakeNFTs(uint[] calldata ids) external nonReentrant {
+        for (uint i; i < ids.length; i++) {
+            _unstakeNFT(msg.sender, ids[i]);
+        }
+    }
+
+    // payout
+	function _payoutStake(uint tokenId) private {
+		Stake memory _tokenId = receipt[tokenId]; // gas saver
+
+		// earned amount is difference between the stake start block, current block multiplied by stake amount
+		uint timeStaked = (block.number - _tokenId.stakedFromBlock) - 1; // don't pay for the tx block of withdrawl
+		uint payout = timeStaked * tokensPerBlock;
+
+		// If contract does not have enough tokens to pay out, return the NFT without payment
+		// This prevent a NFT being locked in the contract when empty
+		if (erc20Token.balanceOf(address(this)) < payout) {
+			emit StakePayout(
+				msg.sender,
+				tokenId,
+				0,
+				_tokenId.stakedFromBlock,
+				block.number
+			);
+		} else {
+			// payout stake
+			erc20Token.transfer(_tokenId.owner, payout);
+            pastClaims[_tokenId.owner] += payout;
+			emit StakePayout(
+				msg.sender,
+				tokenId,
+				payout,
+				_tokenId.stakedFromBlock,
+				block.number
+			);
+		}
+	}
+
+    // withdraw
+	function withdrawRewardsNoArray() external nonReentrant {
+		uint[] memory _stakedNFTs = stakedNFTs[msg.sender]; // gas saver
+		for (uint i; i < _stakedNFTs.length; i++) {
+			uint tokenId = _stakedNFTs[i];
+			_onlyStaker(tokenId);
+			_requireTimeElapsed(tokenId);
+			_payoutStake(tokenId);
+
+			// update receipt with a new block number
+			receipt[tokenId].stakedFromBlock = block.number;
+		}
+	}
+
+// ---------------------
+
+    // other functions
+	function _requireTimeElapsed(uint tokenId) private view {
+		require(
+			receipt[tokenId].stakedFromBlock < block.number,
+			"requireTimeElapsed: Can not stake/unStake/harvest in same block"
+		);
+	}
+
+    // Returns an array of all the NFTs a user has staked
+    function getAllNFTsUserStaked(address account)
+        public
+        view
+        returns (uint[] memory)
+    {
+        return stakedNFTs[account];
+    }
+
+	function _getTimeStaked(uint256 tokenId) internal view returns (uint256) {
+        if (receipt[tokenId].stakedFromBlock == 0) {
+            return 0;
+        }
+        return receipt[tokenId].stakedFromBlock;
+    }
+
+	function _getCurrentStakeEarned(uint256 tokenId) public view returns (uint256) {
+		if (receipt[tokenId].stakedFromBlock == 0) {
+			return 0;
+		}
+		return (block.number - _getTimeStaked(tokenId)) * tokensPerBlock;
+    }
+
+	function getPendingRewards() public view returns (uint) {
+        uint total = 0;
+		uint[] memory _stakedNFTs = stakedNFTs[msg.sender];
+		for (uint i; i < _stakedNFTs.length; i++) {
+			uint tokenId = _stakedNFTs[i];
+			total += _getCurrentStakeEarned(tokenId);
+		}
+        return total;
+	}
+
+    function getPastClaims() public view returns (uint) {
+        return pastClaims[msg.sender];
+    }
+
+	// Returns the total amount of ERC20 tokens that this contract owns
+	function getStakeContractBalance() public view returns (uint) {
+		return erc20Token.balanceOf(address(this));
+	}
+
+	// Allows you to set a new ERC20 contract address
+	function setERC20Contract(address _tokenAddress) public onlyOwner {
+		erc20Token = IERC20(_tokenAddress);
+	}
+
+	// Allows you to set a new NFT contract address
+	function setNFTContract(address _nftAddress) public onlyOwner {
+		nftToken = IERC1155(_nftAddress);
+	}
+
+	// Allows you to update the rewards per block amount
+	function updateStakingReward(uint _tokensPerBlock) external onlyOwner {
+		tokensPerBlock = _tokensPerBlock;
+		emit StakeRewardUpdated(tokensPerBlock);
+	}
+
+	// Returns the length of the total amount an account has staked to this smart contract
+	function totalNFTsUserStaked(address account) public view returns (uint) {
+		return stakedNFTs[account].length;
+	}
+
+    // modifier
+    function _onlyStaker(uint tokenId) private view {
+        require(
+            nftToken.ownerOf(tokenId) == address(this),
+            "onlyStaker: Contract is not owner of this NFT"
+        );
+        require(
+            receipt[tokenId].stakedFromBlock != 0,
+            "onlyStaker: Token is not staked"
+        );
+        require(
+            receipt[tokenId].owner == msg.sender,
+            "onlyStaker: Caller is not NFT stake owner"
+        );
+    }
+
+    // set dev wallet
+    function setCollector(address _collector) public onlyOwner {
+        collector = _collector;
+    }
+
+    // set entry fee
+    function setFee(uint _fee) public onlyOwner {
+        fee = _fee;
+    }
+
+    // requires erc20 approval
+    function payFee() external {
+        require(paidFee[msg.sender] == false, "You already paid the fee");
+        feeToken.transferFrom(msg.sender, collector, fee);
+        paidFee[msg.sender] = true;
+        totalFeesPaid += fee;
+    }
+
+    // change status in emergency
+    function manualSetStatus(address _user, bool _status) public onlyOwner {
+        paidFee[_user] = _status;
+    }
+
+}
