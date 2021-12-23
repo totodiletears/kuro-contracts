@@ -59,10 +59,9 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
     }
 
     // set approval for all
-    // important functions
     // stake
-    function stakeNFT(address from, uint tokenId) internal {
-        require(paidFee[from] == true);
+    function _stakeNFT(address from, uint tokenId) internal {
+        require(paidFee[from] == true, "Must pay entry fee");
         nftToken.safeTransferFrom(msg.sender, address(this), tokenId);
         require(
             nftToken.ownerOf(tokenId) == address(this),
@@ -78,9 +77,9 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
     }
 
     // stake multiple
-    function stakeMultipleNFTs(address from, uint[] calldata ids) external nonReentrant {
+    function stakeNFTs(uint[] calldata ids) external nonReentrant {
         for (uint i; i < ids.length; i++) {
-            stakeNFT(from, ids[i]);
+            _stakeNFT(msg.sender, ids[i]);
 		}
     }
 
@@ -100,35 +99,6 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
 		nftToken.safeTransferFrom(address(this), msg.sender, tokenId);
 		totalNFTsStaked--;
 	}
-
-    // unstake multiple
-	// function unstakeMultipleNFTs(uint[] calldata tokenIds) external nonReentrant {
-	// 	// Array needed to pay out the NFTs
-	// 	uint[] storage _stakedNFTs = stakedNFTs[msg.sender]; // gas saver
-
-	// 	for (uint i; i < tokenIds.length; i++) {
-	// 		uint id = tokenIds[i]; // gas saver
-
-	// 		_onlyStaker(id);
-	// 		_requireTimeElapsed(id);
-	// 		_payoutStake(id);
-
-	// 		// Finds the ID in the array and removes it.
-	// 		for (uint x; x < _stakedNFTs.length; x++) {
-	// 			if (id == _stakedNFTs[x]) {
-	// 				_stakedNFTs[x] = _stakedNFTs[_stakedNFTs.length - 1];
-	// 				_stakedNFTs.pop();
-	// 				break;
-	// 			}
-	// 		}
-
-	// 		emit NFTUnStaked(msg.sender, id, receipt[id].stakedFromBlock);
-	// 	}
-
-	// 	nftToken.safeTransferFrom(address(this), msg.sender, );
-	// 	totalNFTsStaked -= tokenIds.length;
-	// }
-
 
     // payout
 	function _payoutStake(uint tokenId) private {
@@ -270,9 +240,6 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
     }
 
     // required by solidity
-    /**
-     * Always returns `IERC721Receiver.onERC721Received.selector`.
-     */
     function onERC721Received(
         address,
         address,
@@ -282,10 +249,12 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
         return this.onERC721Received.selector;
     }
 
+    // set dev wallet
     function setCollector(address _collector) public onlyOwner {
         collector = _collector;
     }
 
+    // set entry fee
     function setFee(uint _fee) public onlyOwner {
         fee = _fee;
     }
@@ -296,6 +265,11 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
         feeToken.transferFrom(msg.sender, collector, fee);
         paidFee[msg.sender] = true;
         totalFeesPaid += fee;
-    } 
+    }
+
+    // change status in emergency
+    function manualSetStatus(address _user, bool _status) public onlyOwner {
+        paidFee[_user] = _status;
+    }
 
 }
