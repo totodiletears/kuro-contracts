@@ -10,9 +10,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
     IERC721 public nftToken;
     IERC20 public erc20Token;
+    IERC20 public feeToken;
+
+    address private collector;
+    uint public fee;
 
     uint public tokensPerBlock;
     uint public totalNFTsStaked;
+    uint public totalFeesPaid;
 
     struct Stake {
         address owner;
@@ -22,6 +27,7 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
     mapping(uint => Stake) public receipt;
     mapping(address => uint[]) public stakedNFTs;
     mapping(address => uint) public pastClaims;
+    mapping(address => bool) public paidFee;
 
     event NFTStaked(address indexed staker, uint tokenId, uint blockNumber);
     event NFTUnStaked(address indexed staker, uint tokenId, uint blockNumber);
@@ -37,11 +43,17 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
     constructor(
         address _nftToken,
         address _erc20Token,
+        address _feeToken,
+        address _collector,
+        uint _fee,
         uint _tokensPerBlock
     ) {
         nftToken = IERC721(_nftToken);
         erc20Token = IERC20(_erc20Token);
+        feeToken = IERC20(_feeToken);
+        collector = _collector;
         tokensPerBlock = _tokensPerBlock;
+        fee = _fee;
 
         emit StakeRewardUpdated(tokensPerBlock);
     }
@@ -50,6 +62,7 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
     // important functions
     // stake
     function stakeNFT(address from, uint tokenId) internal {
+        require(paidFee[from] == true);
         nftToken.safeTransferFrom(msg.sender, address(this), tokenId);
         require(
             nftToken.ownerOf(tokenId) == address(this),
@@ -65,7 +78,7 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
     }
 
     // stake multiple
-    function stakeMultipleNFTs(address from, uint[] calldata ids) external {
+    function stakeMultipleNFTs(address from, uint[] calldata ids) external nonReentrant {
         for (uint i; i < ids.length; i++) {
             stakeNFT(from, ids[i]);
 		}
@@ -88,7 +101,33 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
 		totalNFTsStaked--;
 	}
 
-    // unstakeMultiple
+    // unstake multiple
+	// function unstakeMultipleNFTs(uint[] calldata tokenIds) external nonReentrant {
+	// 	// Array needed to pay out the NFTs
+	// 	uint[] storage _stakedNFTs = stakedNFTs[msg.sender]; // gas saver
+
+	// 	for (uint i; i < tokenIds.length; i++) {
+	// 		uint id = tokenIds[i]; // gas saver
+
+	// 		_onlyStaker(id);
+	// 		_requireTimeElapsed(id);
+	// 		_payoutStake(id);
+
+	// 		// Finds the ID in the array and removes it.
+	// 		for (uint x; x < _stakedNFTs.length; x++) {
+	// 			if (id == _stakedNFTs[x]) {
+	// 				_stakedNFTs[x] = _stakedNFTs[_stakedNFTs.length - 1];
+	// 				_stakedNFTs.pop();
+	// 				break;
+	// 			}
+	// 		}
+
+	// 		emit NFTUnStaked(msg.sender, id, receipt[id].stakedFromBlock);
+	// 	}
+
+	// 	nftToken.safeTransferFrom(address(this), msg.sender, );
+	// 	totalNFTsStaked -= tokenIds.length;
+	// }
 
 
     // payout
@@ -242,4 +281,21 @@ contract GuestStake is IERC721Receiver, ReentrancyGuard, Ownable {
     ) public virtual override returns (bytes4) {
         return this.onERC721Received.selector;
     }
+
+    function setCollector(address _collector) public onlyOwner {
+        collector = _collector;
+    }
+
+    function setFee(uint _fee) public onlyOwner {
+        fee = _fee;
+    }
+
+    // requires erc20 approval
+    function payFee() external {
+        require(paidFee[msg.sender] == false, "You already paid the fee");
+        feeToken.transferFrom(msg.sender, collector, fee);
+        paidFee[msg.sender] = true;
+        totalFeesPaid += fee;
+    } 
+
 }
