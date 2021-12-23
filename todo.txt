@@ -1,2 +1,3 @@
 figure out how staking ends
 add old contracts here
+guest stake 1155
