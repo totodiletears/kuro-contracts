@@ -307,19 +307,13 @@ contract Staking is ERC1155Holder, ReentrancyGuard, Ownable {
     }
 
 	function getPendingRewards() public view returns (uint) {
-		uint temp = 0;
         uint total = 0;
 		uint[] memory _stakedNFTs = stakedNFTs[msg.sender];
 		for (uint i; i < _stakedNFTs.length; i++) {
 			uint tokenId = _stakedNFTs[i];
-			temp += _getCurrentStakeEarned(tokenId);
+			total += _getCurrentStakeEarned(tokenId);
 		}
-        // removes one block from pending
-        total = temp - (tokensPerBlock * _stakedNFTs.length);
-        if (total < 0) {
-            return 0;
-        }
-		return total;
+        return total;
 	}
 
     function getPastClaims() public view returns (uint) {
