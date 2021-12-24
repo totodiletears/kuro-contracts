@@ -319,4 +319,9 @@ contract Staking is ERC1155Holder, ReentrancyGuard, Ownable {
     function getPastClaims() public view returns (uint) {
         return pastClaims[msg.sender];
     }
+
+	function withdrawAndEnd() public onlyOwner {
+		erc20Token.transfer(msg.sender, erc20Token.balanceOf(address(this)));
+	}
+
 }
