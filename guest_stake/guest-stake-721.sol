@@ -18,7 +18,9 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
     uint public tokensPerBlock;
     uint public totalNFTsStaked;
     uint public totalFeesPaid;
-    uint startingId;
+    uint public startingId;
+
+    string public name;
 
     struct Stake {
         address owner;
@@ -48,7 +50,8 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         address _collector,
         uint _fee,
         uint _tokensPerBlock,
-        uint _startingId
+        uint _startingId,
+        string memory _name
     ) {
         nftToken = IERC721(_nftToken);
         erc20Token = IERC20(_erc20Token);
@@ -57,6 +60,7 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         tokensPerBlock = _tokensPerBlock;
         fee = _fee;
         startingId = _startingId;
+        name = _name;
 
         emit StakeRewardUpdated(tokensPerBlock);
     }
@@ -276,6 +280,14 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         paidFee[_user] = _status;
     }
 
+    function setStartingId(uint _startingId) public onlyOwner {
+        startingId = _startingId;
+    }
+
+    function setName(string memory _name) public onlyOwner {
+        name = _name;
+    }
+
     function getIds(address _user) public view returns (uint[] memory) {
         require(nftToken.balanceOf(_user) > 0, "None owned");
         uint[] memory ids = new uint[](nftToken.balanceOf(_user));
@@ -290,5 +302,14 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         }
         return ids;
     }
-    
+
+    // pause
+
+    // end
+
+    // withdraw tokens
+    function withdrawAndEnd() public onlyOwner {
+		erc20Token.transfer(msg.sender, erc20Token.balanceOf(address(this)));
+	}
+
 }
