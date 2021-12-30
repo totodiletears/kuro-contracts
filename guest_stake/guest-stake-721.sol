@@ -18,6 +18,7 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
     uint public tokensPerBlock;
     uint public totalNFTsStaked;
     uint public totalFeesPaid;
+    uint startingId;
 
     struct Stake {
         address owner;
@@ -46,7 +47,8 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         address _feeToken,
         address _collector,
         uint _fee,
-        uint _tokensPerBlock
+        uint _tokensPerBlock,
+        uint _startingId
     ) {
         nftToken = IERC721(_nftToken);
         erc20Token = IERC20(_erc20Token);
@@ -54,6 +56,7 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         collector = _collector;
         tokensPerBlock = _tokensPerBlock;
         fee = _fee;
+        startingId = _startingId;
 
         emit StakeRewardUpdated(tokensPerBlock);
     }
@@ -273,4 +276,19 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         paidFee[_user] = _status;
     }
 
+    function getIds(address _user) public view returns (uint[] memory) {
+        require(nftToken.balanceOf(_user) > 0, "None owned");
+        uint[] memory ids = new uint[](nftToken.balanceOf(_user));
+        uint counter = 0;
+        uint i = startingId;
+        while (counter < nftToken.balanceOf(_user)) {
+            if (nftToken.ownerOf(i) == _user) {
+                ids[counter] = i;
+                counter++;
+            }
+            i++;
+        }
+        return ids;
+    }
+    
 }
