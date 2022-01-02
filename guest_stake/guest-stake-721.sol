@@ -19,8 +19,10 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
     uint public totalNFTsStaked;
     uint public totalFeesPaid;
     uint public startingId;
+    uint public rewardTokenDecimals;
 
     string public name;
+    bool public paused;
 
     struct Stake {
         address owner;
@@ -51,6 +53,7 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         uint _fee,
         uint _tokensPerBlock,
         uint _startingId,
+        uint _rewardTokenDecimals,
         string memory _name
     ) {
         nftToken = IERC721(_nftToken);
@@ -60,13 +63,17 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         tokensPerBlock = _tokensPerBlock;
         fee = _fee;
         startingId = _startingId;
+        rewardTokenDecimals = _rewardTokenDecimals;
         name = _name;
+        paused = false;
 
         emit StakeRewardUpdated(tokensPerBlock);
     }
 
     // set approval for all
-    // stake
+    // for staking, user should always use the multiple version for stake and unstake
+    // this simplifies front end
+    // internal stake
     function _stakeNFT(address from, uint tokenId) internal {
         require(paidFee[from] == true, "Must pay entry fee");
         nftToken.safeTransferFrom(msg.sender, address(this), tokenId);
@@ -83,14 +90,15 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
 		emit NFTStaked(from, tokenId, block.number);
     }
 
-    // stake multiple
+    // stake
     function stakeNFTs(uint[] calldata ids) external nonReentrant {
+        require(paused == false, "Staking is paused");
         for (uint i; i < ids.length; i++) {
             _stakeNFT(msg.sender, ids[i]);
 		}
     }
 
-    // unstake
+    // internal unstake
 	function _unstakeNFT(address from, uint tokenId) internal {
 		_onlyStaker(tokenId);
 		_requireTimeElapsed(tokenId);
@@ -107,7 +115,7 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
 		totalNFTsStaked--;
 	}
 
-    // unstake multiple
+    // unstake 
     function unstakeNFTs(uint[] calldata ids) external nonReentrant {
         for (uint i; i < ids.length; i++) {
             _unstakeNFT(msg.sender, ids[i]);
@@ -160,7 +168,7 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
 		}
 	}
 
-    // other functions
+    // requires a user to stake for at least one block
 	function _requireTimeElapsed(uint tokenId) private view {
 		require(
 			receipt[tokenId].stakedFromBlock < block.number,
@@ -191,7 +199,11 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
 		return (block.number - _getTimeStaked(tokenId)) * tokensPerBlock;
     }
 
+    // returns rewards a user has earned but hasn't claimed yet
 	function getPendingRewards() public view returns (uint) {
+        if (paused == true) {
+            return 0;
+        }
         uint total = 0;
 		uint[] memory _stakedNFTs = stakedNFTs[msg.sender];
 		for (uint i; i < _stakedNFTs.length; i++) {
@@ -201,6 +213,7 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         return total;
 	}
 
+    // returns the amount of reward token a user has claimed
     function getPastClaims() public view returns (uint) {
         return pastClaims[msg.sender];
     }
@@ -267,7 +280,7 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         fee = _fee;
     }
 
-    // requires erc20 approval
+    // requires erc20 approval to pay to the fee to be able to stake
     function payFee() external {
         require(paidFee[msg.sender] == false, "You already paid the fee");
         feeToken.transferFrom(msg.sender, collector, fee);
@@ -275,19 +288,22 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         totalFeesPaid += fee;
     }
 
-    // change status in emergency
+    // change status of fee paid for user
     function manualSetStatus(address _user, bool _status) public onlyOwner {
         paidFee[_user] = _status;
     }
 
+    // first token ID of a collection, usually 1 or 0
     function setStartingId(uint _startingId) public onlyOwner {
         startingId = _startingId;
     }
 
+    // sets a name of guest project just for reference
     function setName(string memory _name) public onlyOwner {
         name = _name;
     }
 
+    // returns the IDs a user owns
     function getIds(address _user) public view returns (uint[] memory) {
         require(nftToken.balanceOf(_user) > 0, "None owned");
         uint[] memory ids = new uint[](nftToken.balanceOf(_user));
@@ -303,12 +319,14 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
         return ids;
     }
 
-    // pause
+    // pause needed to stop new stakers
+    function setPause (bool _paused) public onlyOwner {
+        paused = _paused;
+    }
 
-    // end
-
-    // withdraw tokens
+    // withdraw tokens and end staking
     function withdrawAndEnd() public onlyOwner {
+        setPause(true);
 		erc20Token.transfer(msg.sender, erc20Token.balanceOf(address(this)));
 	}
 
