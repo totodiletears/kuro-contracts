@@ -200,12 +200,12 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
     }
 
     // returns rewards a user has earned but hasn't claimed yet
-	function getPendingRewards() public view returns (uint) {
+	function getPendingRewards(address _user) public view returns (uint256) {
         if (paused == true) {
             return 0;
         }
         uint total = 0;
-		uint[] memory _stakedNFTs = stakedNFTs[msg.sender];
+		uint[] memory _stakedNFTs = stakedNFTs[_user];
 		for (uint i; i < _stakedNFTs.length; i++) {
 			uint tokenId = _stakedNFTs[i];
 			total += _getCurrentStakeEarned(tokenId);
@@ -214,12 +214,12 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
 	}
 
     // returns the amount of reward token a user has claimed
-    function getPastClaims() public view returns (uint) {
-        return pastClaims[msg.sender];
+    function getPastClaims(address _user) public view returns (uint256) {
+        return pastClaims[_user];
     }
 
 	// Returns the total amount of ERC20 tokens that this contract owns
-	function getStakeContractBalance() public view returns (uint) {
+	function getStakeContractBalance() public view returns (uint256) {
 		return erc20Token.balanceOf(address(this));
 	}
 
@@ -240,7 +240,7 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
 	}
 
 	// Returns the length of the total amount an account has staked to this smart contract
-	function totalNFTsUserStaked(address account) public view returns (uint) {
+	function totalNFTsUserStaked(address account) public view returns (uint256) {
 		return stakedNFTs[account].length;
 	}
 
@@ -320,7 +320,7 @@ contract GuestStake721 is IERC721Receiver, ReentrancyGuard, Ownable {
     }
 
     // pause needed to stop new stakers
-    function setPause (bool _paused) public onlyOwner {
+    function setPause(bool _paused) public onlyOwner {
         paused = _paused;
     }
 
