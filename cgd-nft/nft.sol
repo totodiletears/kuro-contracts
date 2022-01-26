@@ -13,8 +13,8 @@ contract MyToken is ERC721Enumerable, Ownable {
     uint256 public greyTotal = 0;
     uint256 public greenTotal = 0;
     uint256 public purpleTotal = 0;
-    uint256 public cost = 1 ether;
-    uint256 public maxAmountPerMint = 10;
+    uint256 public cost = 10 ether;
+    uint256 public maxAmountPerMint = 50;
     bool public paused = false;
 
     constructor(
@@ -51,11 +51,11 @@ contract MyToken is ERC721Enumerable, Ownable {
         }
     }
 
-    // green is color ID 0
+    // green is color ID 1
     function mintGreen(uint256 _amount) public payable {
         require(!paused);
         require(_amount > 0, "cant mint zero");
-        require(greyTotal + _amount <= max, "more than exists");
+        require(greenTotal + _amount <= max, "more than exists");
         require(_amount <= maxAmountPerMint, "max per mint exceeded");
         uint256 supply = totalSupply();
 
@@ -70,11 +70,11 @@ contract MyToken is ERC721Enumerable, Ownable {
         }
     }
 
-    // purple is color ID 0
+    // purple is color ID 2
     function mintPurple(uint256 _amount) public payable {
         require(!paused);
         require(_amount > 0, "cant mint zero");
-        require(greyTotal + _amount <= max, "more than exists");
+        require(purpleTotal + _amount <= max, "more than exists");
         require(_amount <= maxAmountPerMint, "max per mint exceeded");
         uint256 supply = totalSupply();
 
