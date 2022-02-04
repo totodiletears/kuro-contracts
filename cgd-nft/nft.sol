@@ -14,15 +14,17 @@ contract MyToken is ERC721Enumerable, Ownable {
     uint256 public greenTotal = 0;
     uint256 public purpleTotal = 0;
     uint256 public cost = 10 ether;
-    uint256 public maxAmountPerMint = 50;
+    uint256 public maxAmountPerMint;
     bool public paused = false;
 
     constructor(
         string memory _name,
         string memory _symbol,
-        string memory _initBaseURI
+        string memory _initBaseURI,
+        uint256 _maxPerMint
     ) ERC721(_name, _symbol) {
         setBaseURI(_initBaseURI);
+        maxAmountPerMint = _maxPerMint;
     }
 
     // internal
@@ -89,9 +91,16 @@ contract MyToken is ERC721Enumerable, Ownable {
         }
     }
 
-    function withdraw() public payable onlyOwner {
-        (bool os, ) = payable(owner()).call{value: address(this).balance}("");
-        require(os);
+    function withdraw(address payable _to) public payable onlyOwner {
+        _to.transfer(address(this).balance);
+    }
+
+    function getBalance() public view returns (uint) {
+        return address(this).balance;
+    }
+
+    function setMaxPerMint(uint256 _maxPerMint) public onlyOwner {
+        maxAmountPerMint = _maxPerMint;
     }
 
     function setColor(uint256 _id, uint256 _color) internal {

@@ -21,6 +21,11 @@
 						"internalType": "string",
 						"name": "_initBaseURI",
 						"type": "string"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_maxPerMint",
+						"type": "uint256"
 					}
 				],
 				"stateMutability": "nonpayable",
@@ -197,6 +202,19 @@
 						"internalType": "address",
 						"name": "",
 						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getBalance",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
 					}
 				],
 				"stateMutability": "view",
@@ -506,6 +524,19 @@
 			{
 				"inputs": [
 					{
+						"internalType": "uint256",
+						"name": "_maxPerMint",
+						"type": "uint256"
+					}
+				],
+				"name": "setMaxPerMint",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
 						"internalType": "bytes4",
 						"name": "interfaceId",
 						"type": "bytes4"
@@ -647,7 +678,13 @@
 				"type": "function"
 			},
 			{
-				"inputs": [],
+				"inputs": [
+					{
+						"internalType": "address payable",
+						"name": "_to",
+						"type": "address"
+					}
+				],
 				"name": "withdraw",
 				"outputs": [],
 				"stateMutability": "payable",
@@ -836,11 +873,11 @@
 			]
 		},
 		"contracts/1_Storage.sol": {
-			"keccak256": "0x915675a9c24e49d1aa78669e9f87e5677b8ecb517e6fb7f79afac67c202afb60",
+			"keccak256": "0xc95dd099da244279791dd12fe482703292cded5fa12411b3c3d04ff92cb7e9cc",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://db94929a0e0e0452739103e235aaef9f7fe8ee59b31dd2962386c974a7405f89",
-				"dweb:/ipfs/QmP2N2ZHH4WpGSHyVy5zadZ3fD17m5FPKpD6CXwzMqasQt"
+				"bzz-raw://9603c848be8878ce709a17b81ec392fcbd927cceb1876c227c6a5cf28cf8ba70",
+				"dweb:/ipfs/QmUHaF9nFP3gR8yYfBTTEQfCVJMr4aqqqme2yY8SzFKULk"
 			]
 		}
 	},
