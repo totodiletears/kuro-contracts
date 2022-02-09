@@ -55,7 +55,7 @@ contract KuroBond {
         require(!gotPaid[msg.sender]);
         erc20Token.transfer(msg.sender, totalBondsForUser[msg.sender] * bondCost);
         totalBondsActive -= totalBondsForUser[msg.sender];
-        totalBondsActive 
+        totalBondsForUser[msg.sender] = 0; 
         isBonding[msg.sender] = false;
     }
 
