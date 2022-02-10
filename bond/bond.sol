@@ -59,7 +59,7 @@ contract KuroBond {
         isBonding[msg.sender] = false;
     }
 
-    // view
+    // gets
     function getCost() public view returns (uint) {
         return bondCost;
     }
@@ -98,5 +98,8 @@ contract KuroBond {
     function getCurrentTime() public view returns (uint) {
         return block.timestamp;
     }
+
+    // sets
+    // add sets
 
 }
