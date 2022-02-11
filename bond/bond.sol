@@ -2,17 +2,18 @@
 pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract KuroBond {
+contract KuroBond is Ownable {
     IERC20 public erc20Token;
 
     uint totalBondsActive;
 
     // make variable in constructor
-    uint bondCost = 10000;
-    uint bondPayoutAmount = 12500;
-    uint totalBondsAvailable = 400;
-    uint bondingTime = 60 days;
+    uint bondCost; // = 10000;
+    uint bondPayoutAmount; // = 12500;
+    uint totalBondsAvailable; // = 400;
+    uint bondingTime; // = 60 days;
 
     mapping(address => bool) gotPaid;
     mapping(address => bool) isBonding;
@@ -20,9 +21,17 @@ contract KuroBond {
     mapping(address => uint) bondEndTime;
 
     constructor(
-        address _erc20Token
+        address _erc20Token,
+        uint _bondCost,
+        uint _bondPayoutAmount,
+        uint _totalBondsAvailable,
+        uint _bondingTimeInDays
     ) {
         erc20Token = IERC20(_erc20Token);
+        bondCost = _bondCost;
+        bondPayoutAmount = _bondPayoutAmount;
+        totalBondsAvailable = _totalBondsAvailable;
+        bondingTime = _bondingTimeInDays * 86400;
     }
 
     function buyBond(uint _amount) public {
@@ -98,8 +107,5 @@ contract KuroBond {
     function getCurrentTime() public view returns (uint) {
         return block.timestamp;
     }
-
-    // sets
-    // add sets
 
 }
