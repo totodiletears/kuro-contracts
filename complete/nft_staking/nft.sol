@@ -30,7 +30,13 @@ contract NFTs is ERC1155Supply, Ownable {
 	IStaking public stakingContract;
 	IMarketplace public marketplaceContract;
 
-	constructor() ERC1155("https://ipfs.io/") {}
+    uint public supply;
+
+	constructor(
+        uint _supply
+    ) ERC1155("https://ipfs.io/") {
+        supply = _supply;
+    }
 
 	function setURI(string memory newuri) public onlyOwner {
 		_setURI(newuri);
@@ -123,5 +129,9 @@ contract NFTs is ERC1155Supply, Ownable {
 			""
 		);
 		marketplaceContract.sellMultipleNFTs(msg.sender, ids, prices);
+	}
+
+	function setSupply(uint _supply) public onlyOwner {
+		supply = _supply;
 	}
 }
