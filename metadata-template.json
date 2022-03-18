@@ -1,6 +1,7 @@
 {
-    "name": "Test Collection #1",
-    "description": "KURO Test 1 for testing tests",
-    "image": "https://kuro.mypinata.cloud/ipfs/QmaTLARh9FXSeN34wUQ4DyGfdgxNNE31kib5qJgqQUx8jk/NFT_Painter_KURO.png",
-    "preview": "https://kuro.mypinata.cloud/ipfs/QmaTLARh9FXSeN34wUQ4DyGfdgxNNE31kib5qJgqQUx8jk/preview.png"
-}
+    "name": "Avocado",
+    "description": "Avocado",
+    "image": "https://kuro.mypinata.cloud/ipfs/QmdSj4x3HFb8Gn5Lk6SMe47ATdUdZiCRRG6cxivT9gb9rG/avocado.png",
+    "preview": "https://kuro.mypinata.cloud/ipfs/QmdSj4x3HFb8Gn5Lk6SMe47ATdUdZiCRRG6cxivT9gb9rG/preview.png",
+    "vendor": "Kuro Shiba"
+  }
